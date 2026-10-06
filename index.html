@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather App</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            min-height: 100vh;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            padding: 20px;
+        }
+
+        .weather-container {
+            width: 100%;
+            max-width: 450px;
+            background: rgba(255, 255, 255, 0.95);
+
+            padding: 30px;
+            border-radius: 20px;
+
+            text-align: center;
+
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            margin-bottom: 25px;
+            color: #222;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 12px 15px;
+
+            border: 1px solid #ddd;
+            border-radius: 10px;
+
+            font-size: 16px;
+            outline: none;
+        }
+
+        .search-box input:focus {
+            border-color: #4facfe;
+        }
+
+        .search-box button {
+            padding: 12px 18px;
+
+            background: #4facfe;
+            color: white;
+
+            border: none;
+            border-radius: 10px;
+
+            font-size: 16px;
+            cursor: pointer;
+
+            transition: 0.2s;
+        }
+
+        .search-box button:hover {
+            background: #2389e8;
+        }
+
+        .weather-card {
+            display: none;
+
+            padding: 20px;
+            margin-top: 15px;
+
+            background: linear-gradient(135deg,
+                    #e0f7ff,
+                    #ffffff);
+
+            border-radius: 15px;
+        }
+
+        .weather-card h2 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .weather-card img {
+            width: 100px;
+            height: 100px;
+        }
+
+        .temperature {
+            font-size: 50px;
+            font-weight: bold;
+            margin: 10px 0;
+            color: #222;
+        }
+
+        #condition {
+            font-size: 20px;
+            color: #555;
+            margin-bottom: 20px;
+        }
+
+        .weather-details {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .weather-details div {
+            background: white;
+            padding: 12px 5px;
+            border-radius: 10px;
+        }
+
+        .weather-details span {
+            display: block;
+            font-size: 12px;
+            color: #777;
+            margin-bottom: 5px;
+        }
+
+        .weather-details strong {
+            font-size: 14px;
+            color: #222;
+        }
+
+        .updated {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #777;
+        }
+
+        .loading {
+            display: none;
+            color: #333;
+            margin: 15px 0;
+        }
+
+        .error {
+            display: none;
+            color: #d90429;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+
+        @media (max-width: 500px) {
+            .weather-container {
+                padding: 20px;
+            }
+
+            .search-box {
+                flex-direction: column;
+            }
+
+            .search-box button {
+                width: 100%;
+            }
+
+            .weather-details {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <div class="weather-container">
+        <h1>🌤️ Weather App</h1>
+
+        <div class="search-box">
+            <input type="text" id="locationInput" placeholder="Enter city name..." autocomplete="off">
+            <button id="searchBtn">Search</button>
+        </div>
+
+        <p id="loading" class="loading">Loading...</p>
+        <p id="error" class="error"></p>
+
+        <div id="weatherCard" class="weather-card">
+
+            <h2 id="cityName">Noida</h2>
+
+            <img id="weatherIcon" src="" alt="Weather Icon">
+
+            <div class="temperature">
+                <span id="temperature">--</span>°C
+            </div>
+
+            <p id="condition">--</p>
+
+            <div class="weather-details">
+                <div>
+                    <span>Feels Like</span>
+                    <strong id="feelsLike">--°C</strong>
+                </div>
+
+                <div>
+                    <span>Humidity</span>
+                    <strong id="humidity">--%</strong>
+                </div>
+
+                <div>
+                    <span>Wind</span>
+                    <strong id="wind">-- km/h</strong>
+                </div>
+            </div>
+
+            <p class="updated">
+                Last updated: <span id="updatedTime">--</span>
+            </p>
+
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = "f79c5343812d42efae822700262709";
+
+        const locationInput = document.getElementById("locationInput");
+        const searchBtn = document.getElementById("searchBtn");
+
+        const weatherCard = document.getElementById("weatherCard");
+        const loading = document.getElementById("loading");
+        const errorMessage = document.getElementById("error");
+
+        const cityName = document.getElementById("cityName");
+        const weatherIcon = document.getElementById("weatherIcon");
+        const temperature = document.getElementById("temperature");
+        const condition = document.getElementById("condition");
+        const feelsLike = document.getElementById("feelsLike");
+        const humidity = document.getElementById("humidity");
+        const wind = document.getElementById("wind");
+        const updatedTime = document.getElementById("updatedTime");
+
+        async function getWeather(location) {
+
+            if (!location.trim()) {
+                showError("Please enter a city name.");
+                return;
+            }
+
+            // Show loading
+            loading.style.display = "block";
+            errorMessage.style.display = "none";
+            weatherCard.style.display = "none";
+
+            try {
+
+                const url =
+                    `https://api.weatherapi.com/v1/current.json` +
+                    `?key=${API_KEY}` +
+                    `&q=${encodeURIComponent(location)}` +
+                    `&aqi=yes`;
+
+                const response = await fetch(url);
+
+                const data = await response.json();
+
+                // WeatherAPI returns an "error" object for invalid locations/API errors
+                if (!response.ok || data.error) {
+                    throw new Error(
+                        data.error?.message || "Unable to get weather data."
+                    );
+                }
+
+                // Location
+                cityName.textContent =
+                    `${data.location.name}, ${data.location.country}`;
+
+                // Weather icon
+                weatherIcon.src = "https:" + data.current.condition.icon;
+                weatherIcon.alt = data.current.condition.text;
+
+                // Temperature
+                temperature.textContent =
+                    Math.round(data.current.temp_c);
+
+                // Weather condition
+                condition.textContent =
+                    data.current.condition.text;
+
+                // Other details
+                feelsLike.textContent =
+                    `${Math.round(data.current.feelslike_c)}°C`;
+
+                humidity.textContent =
+                    `${data.current.humidity}%`;
+
+                wind.textContent =
+                    `${data.current.wind_kph} km/h`;
+
+                updatedTime.textContent =
+                    data.current.last_updated;
+
+                weatherCard.style.display = "block";
+
+            } catch (error) {
+
+                showError(error.message);
+
+            } finally {
+
+                loading.style.display = "none";
+            }
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = "block";
+        }
+
+        // Search button
+        searchBtn.addEventListener("click", () => {
+            getWeather(locationInput.value);
+        });
+
+        // Press Enter to search
+        locationInput.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                getWeather(locationInput.value);
+            }
+        });
+
+        // Load Noida when page opens
+        getWeather("Noida");
+    </script>
+</body>
+
+</html>
